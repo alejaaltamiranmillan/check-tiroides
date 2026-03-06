@@ -1,78 +1,49 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import joblib
-import os
-import numpy as np
-import pandas as pd
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Clasificador de Tiroides AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+        <h1 class="text-2xl font-bold mb-6 text-center text-cyan-400">Análisis Tiroideo</h1>
+        <form id="thyroidForm" class="space-y-4">
+            <input type="number" step="any" id="t3_resin" placeholder="T3-Resin Uptake" class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-cyan-500 text-white" required>
+            <input type="number" step="any" id="t4_total" placeholder="Serum T4 Total" class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-cyan-500 text-white" required>
+            <input type="number" step="any" id="t3_total" placeholder="Serum T3 Total" class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-cyan-500 text-white" required>
+            <input type="number" step="any" id="tsh" placeholder="Serum TSH" class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-cyan-500 text-white" required>
+            <input type="number" step="any" id="t4_diff" placeholder="Max TSH Diff" class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-cyan-500 text-white" required>
+            <button type="button" onclick="predecir()" class="w-full bg-cyan-600 hover:bg-cyan-500 py-3 rounded-lg font-bold transition">Analizar</button>
+        </form>
+        <div id="result" class="mt-6 p-4 rounded-lg hidden text-center font-bold border-2 border-cyan-500 text-cyan-400"></div>
+    </div>
 
-# Inicializar la aplicación Flask
-app = Flask(__name__)
-CORS(app)
+    <script>
+        async function predecir() {
+            const resultDiv = document.getElementById('result');
+            const payload = {
+                t3_resin: document.getElementById('t3_resin').value,
+                t4_total: document.getElementById('t4_total').value,
+                t3_total: document.getElementById('t3_total').value,
+                tsh: document.getElementById('tsh').value,
+                t4_diff: document.getElementById('t4_diff').value
+            };
 
-# Configurar rutas para cargar el modelo y el escalador en Vercel
-# Esto detecta la carpeta actual donde vive index.py
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, 'modelo_tiroides.pkl')
-SCALER_PATH = os.path.join(BASE_DIR, 'scaler.pkl')
-
-# Intentar cargar los archivos .pkl
-try:
-    model = joblib.load(MODEL_PATH)
-    scaler = joblib.load(SCALER_PATH)
-    print("✅ Modelo y Escalador cargados exitosamente.")
-except Exception as e:
-    print(f"❌ Error al cargar los archivos: {str(e)}")
-
-@app.route('/')
-def home():
-    return "API de Clasificación de Tiroides funcionando correctamente."
-
-@app.route('/api/predict', methods=['POST'])
-def predict():
-    try:
-        # Obtener los datos enviados desde el frontend (index.html)
-        data = request.json
-        
-        # El orden debe ser EXACTAMENTE el mismo que usaste en Google Colab
-        # Basado en el dataset new-thyroid:
-        # 1. T3-resin, 2. T4 total, 3. T3 total, 4. TSH, 5. Max TSH diff
-        input_data = np.array([[
-            float(data['t3_resin']),
-            float(data['t4_total']),
-            float(data['t3_total']),
-            float(data['tsh']),
-            float(data['t4_diff'])
-        ]])
-        
-        # Convertir a DataFrame si tu modelo fue entrenado con nombres de columnas,
-        # de lo contrario, pasar el array directamente al escalador.
-        # 1. Escalamos los datos
-        input_scaled = scaler.transform(input_data)
-        
-        # 2. Hacemos la predicción
-        prediction = model.predict(input_scaled)[0]
-        
-        # 3. Mapeo de resultados del dataset UCI New-Thyroid:
-        # 1 = normal, 2 = hyperthyroidism, 3 = hypothyroidism
-        mapping = {
-            1: "Normal (Eutiroideo)",
-            2: "Hipertiroidismo",
-            3: "Hipotiroidismo"
+            try {
+                // Ruta relativa crucial para Vercel
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                resultDiv.innerText = `Diagnóstico: ${data.diagnostico}`;
+                resultDiv.classList.remove('hidden');
+            } catch (e) {
+                alert("Error conectando con el servidor");
+            }
         }
-        
-        resultado_texto = mapping.get(int(prediction), "Resultado no identificado")
-        
-        return jsonify({
-            'status': 'success',
-            'diagnostico': resultado_texto,
-            'valor_prediccion': int(prediction)
-        })
-
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 400
-
-# IMPORTANTE: Vercel requiere que el objeto 'app' esté disponible.
-# No es necesario llamar a app.run() aquí.
+    </script>
+</body>
+</html>
