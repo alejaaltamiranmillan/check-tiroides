@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiroides AI - Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
+
+    <div class="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-cyan-400">Tiroides Predictor</h1>
+            <p class="text-slate-400 text-sm">Análisis clínico mediante Machine Learning</p>
+        </div>
+        
+        <form id="thyroidForm" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="text-xs font-semibold text-slate-500 uppercase ml-1">T3-Resin Uptake</label>
+                    <input type="number" step="any" id="t3_resin" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="Ej: 100" required>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase ml-1">Serum T4</label>
+                    <input type="number" step="any" id="t4_total" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="9.5" required>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase ml-1">Serum T3</label>
+                    <input type="number" step="any" id="t3_total" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="1.8" required>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase ml-1">Serum TSH</label>
+                    <input type="number" step="any" id="tsh" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="1.2" required>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-500 uppercase ml-1">Max TSH Diff</label>
+                    <input type="number" step="any" id="t4_diff" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="0.5" required>
+                </div>
+            </div>
+            
+            <button type="button" onclick="enviarAProduccion()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 rounded-2xl shadow-lg transition-all duration-300 mt-4 uppercase tracking-wider">
+                Obtener Diagnóstico
+            </button>
+        </form>
+
+        <div id="loading" class="hidden mt-6 text-center text-cyan-400 animate-pulse">Consultando a la IA...</div>
+        <div id="result" class="mt-6 p-4 rounded-2xl hidden text-center font-bold text-xl border-2"></div>
+    </div>
+
+    <script>
+        async function enviarAProduccion() {
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loading');
+            
+            const payload = {
+                t3_resin: document.getElementById('t3_resin').value,
+                t4_total: document.getElementById('t4_total').value,
+                t3_total: document.getElementById('t3_total').value,
+                tsh: document.getElementById('tsh').value,
+                t4_diff: document.getElementById('t4_diff').value
+            };
+
+            loader.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+
+            try {
+                // RUTA RELATIVA PARA VERCEL
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerText = `Resultado: ${data.diagnostico}`;
+                resultDiv.className = "mt-6 p-4 rounded-2xl text-center font-bold text-xl border-cyan-500 text-cyan-400 bg-cyan-900/20";
+            } catch (error) {
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerText = "Error en la conexión";
+                resultDiv.className = "mt-6 p-4 rounded-2xl text-center font-bold text-xl border-red-500 text-red-400 bg-red-900/20";
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
