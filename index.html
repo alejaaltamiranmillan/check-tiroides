@@ -1,0 +1,78 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import joblib
+import os
+import numpy as np
+import pandas as pd
+
+# Inicializar la aplicación Flask
+app = Flask(__name__)
+CORS(app)
+
+# Configurar rutas para cargar el modelo y el escalador en Vercel
+# Esto detecta la carpeta actual donde vive index.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'modelo_tiroides.pkl')
+SCALER_PATH = os.path.join(BASE_DIR, 'scaler.pkl')
+
+# Intentar cargar los archivos .pkl
+try:
+    model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+    print("✅ Modelo y Escalador cargados exitosamente.")
+except Exception as e:
+    print(f"❌ Error al cargar los archivos: {str(e)}")
+
+@app.route('/')
+def home():
+    return "API de Clasificación de Tiroides funcionando correctamente."
+
+@app.route('/api/predict', methods=['POST'])
+def predict():
+    try:
+        # Obtener los datos enviados desde el frontend (index.html)
+        data = request.json
+        
+        # El orden debe ser EXACTAMENTE el mismo que usaste en Google Colab
+        # Basado en el dataset new-thyroid:
+        # 1. T3-resin, 2. T4 total, 3. T3 total, 4. TSH, 5. Max TSH diff
+        input_data = np.array([[
+            float(data['t3_resin']),
+            float(data['t4_total']),
+            float(data['t3_total']),
+            float(data['tsh']),
+            float(data['t4_diff'])
+        ]])
+        
+        # Convertir a DataFrame si tu modelo fue entrenado con nombres de columnas,
+        # de lo contrario, pasar el array directamente al escalador.
+        # 1. Escalamos los datos
+        input_scaled = scaler.transform(input_data)
+        
+        # 2. Hacemos la predicción
+        prediction = model.predict(input_scaled)[0]
+        
+        # 3. Mapeo de resultados del dataset UCI New-Thyroid:
+        # 1 = normal, 2 = hyperthyroidism, 3 = hypothyroidism
+        mapping = {
+            1: "Normal (Eutiroideo)",
+            2: "Hipertiroidismo",
+            3: "Hipotiroidismo"
+        }
+        
+        resultado_texto = mapping.get(int(prediction), "Resultado no identificado")
+        
+        return jsonify({
+            'status': 'success',
+            'diagnostico': resultado_texto,
+            'valor_prediccion': int(prediction)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+# IMPORTANTE: Vercel requiere que el objeto 'app' esté disponible.
+# No es necesario llamar a app.run() aquí.
