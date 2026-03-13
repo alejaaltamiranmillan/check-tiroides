@@ -236,17 +236,35 @@ def decrypt():
 
         attempts = attempt_decodings(text)
 
-        # pick best attempt: prefer non-raw, then printable text, then known file type
+        # pick best attempt: prioritize by method effectiveness
+        # priority order: base64 > hex > rot13 > xor > url > raw
+        priority_order = ['base64', 'hex', 'rot13', 'xor_1byte_key_1']
+        
         chosen = None
-        for a in attempts:
-            if a['method'] != 'raw' and a.get('text'):
-                chosen = a
-                break
-        if chosen is None:
+        # try priority methods first
+        for pmethod in priority_order:
             for a in attempts:
-                if a.get('file_type') and a['file_type'] != 'Unknown/binary':
+                if a['method'] == pmethod and a.get('text'):
                     chosen = a
                     break
+            if chosen:
+                break
+        
+        # if no priority method worked, try any non-raw with text
+        if chosen is None:
+            for a in attempts:
+                if a['method'] != 'raw' and a.get('text'):
+                    chosen = a
+                    break
+        
+        # if still no match, try any known file type
+        if chosen is None:
+            for a in attempts:
+                if a.get('file_type') and a['file_type'] != 'Unknown/binary' and a['method'] != 'raw':
+                    chosen = a
+                    break
+        
+        # fallback to raw
         if chosen is None:
             chosen = attempts[0] if attempts else {'method': 'none', 'text': None, 'file_type': 'Unknown'}
 
