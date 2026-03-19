@@ -358,7 +358,7 @@ def decrypt():
                 for a in attempts:
                     if a['method'].startswith(pmethod) and a.get('text'):
                         chosen = a
-                    break
+                        break
             if chosen:
                 break
 
