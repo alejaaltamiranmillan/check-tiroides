@@ -27,11 +27,11 @@ try:
     if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
         model = joblib.load(MODEL_PATH)
         scaler = joblib.load(SCALER_PATH)
-        print("✅ Recursos cargados correctamente")
+        print("[OK] Recursos cargados correctamente")
     else:
-        print("⚠️ Modelo principal o scaler no encontrados; endpoints de predicción estarán deshabilitados hasta que se provean.")
+        print("[WARNING] Modelo principal o scaler no encontrados; endpoints de prediccion estarán deshabilitados hasta que se provean.")
 except Exception as e:
-    print(f"❌ Error de carga: {str(e)}")
+    print(f"[ERROR] Error de carga: {str(e)}")
 
 # Intentar cargar modelos de cifrado si existen
 enc_model = None
@@ -42,9 +42,9 @@ try:
     if os.path.exists(ENC_SCALER_PATH):
         enc_scaler = joblib.load(ENC_SCALER_PATH)
     if enc_model is not None:
-        print("✅ Modelo de cifrado cargado")
+        print("[OK] Modelo de cifrado cargado")
 except Exception as e:
-    print(f"❌ Error cargando modelo de cifrado: {e}")
+    print(f"[ERROR] Error cargando modelo de cifrado: {e}")
 
 
 def is_printable_text(b: bytes) -> bool:
@@ -151,18 +151,15 @@ def attempt_decodings(text: str):
     except Exception:
         pass
 
-    # XOR brute force (single-byte keys) - collect a few good candidates
+    # XOR brute force (single-byte keys) - try all keys, let scoring decide
     try:
         tb = text.encode('latin-1', errors='ignore')
-        xor_found = 0
         for key in range(1, 256):
             b = bytes([c ^ key for c in tb])
-            if is_printable_text(b):
-                s = b.decode('utf-8', errors='ignore')
-                attempts.append({'method': f'xor_1byte_key_{key}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)})
-                xor_found += 1
-                if xor_found >= 5:
-                    break
+            s = b.decode('utf-8', errors='ignore')
+            # Add ALL xor attempts, not just those that pass printable-text filter
+            # This lets english_score() and selection logic decide which is best
+            attempts.append({'method': f'xor_1byte_key_{key}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)})
     except Exception:
         pass
 
@@ -343,69 +340,66 @@ def decrypt():
             attempts = attempt_decodings(text)
 
         # pick best attempt: prioritize by method effectiveness
-        # priority order: base64 > hex > raw > caesar > rot13 > xor > url
-        priority_order = ['base64', 'hex', 'raw', 'caesar_shift', 'rot13', 'xor_1byte']
+        # NEW priority order: rot13 > caesar > xor > base64 > hex > raw (so we check crypto first)
+        priority_order = ['rot13', 'caesar_shift', 'xor_1byte', 'base64', 'hex', 'raw']
 
         chosen = None
-        # prepare raw candidate
         raw_candidate = next((a for a in attempts if a.get('method') == 'raw'), None)
 
-        # try priority methods first (match by prefix) if not already chosen by quick checks
-        if chosen is None:
-            for pmethod in priority_order:
-                # special handling for raw: only choose raw if it looks English
-                if pmethod == 'raw':
-                    if raw_candidate and english_score(raw_candidate.get('text') or '') > 0:
-                        chosen = raw_candidate
-                        break
-                    continue
-                # special handling for caesar: choose best-scoring candidate among shifts
-                if pmethod == 'caesar_shift':
-                    caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
-                    if caesars:
-                        best = None
-                        best_score = -1
-                        for a in caesars:
-                            s = a.get('text') or ''
-                            sc = english_score(s)
-                            if sc > best_score:
-                                best_score = sc
-                                best = a
-                        if best is not None and best_score > 0:
-                            chosen = best
-                            break
-                        # fallback: pick the caesar with most letters
-                        if best is None:
-                            best = caesars[0]
-                        else:
-                            chosen = best
-                            break
-                    continue
+        # Strategy: Pick the BEST-SCORING decryption from high-value methods first
+        best_overall = None
+        best_overall_score = 0
 
-                for a in attempts:
-                    if a['method'].startswith(pmethod) and a.get('text'):
-                        chosen = a
-                        break
-                if chosen:
+        for pmethod in priority_order:
+            candidates = []
+            
+            if pmethod == 'caesar_shift':
+                candidates = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
+            elif pmethod == 'xor_1byte':
+                candidates = [a for a in attempts if a['method'].startswith('xor_1byte') and a.get('text')]
+            else:
+                candidates = [a for a in attempts if a['method'].startswith(pmethod) and a.get('text')]
+            
+            # Score each candidate
+            for a in candidates:
+                score = english_score(a.get('text') or '')
+                if score > best_overall_score:
+                    best_overall_score = score
+                    best_overall = a
+
+        # If we found a good scoring result (score > 2), use it
+        # This favors "hello", "world", "secret" etc over random text
+        if best_overall is not None and best_overall_score > 2:
+            chosen = best_overall
+        # Otherwise fall back to attempting simple selection by priority
+        else:
+            for pmethod in priority_order:
+                if pmethod == 'raw':
+                    # Only select raw as last resort
+                    continue
+                    
+                candidates = []
+                if pmethod == 'caesar_shift':
+                    candidates = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
+                elif pmethod == 'xor_1byte':
+                    candidates = [a for a in attempts if a['method'].startswith('xor_1byte') and a.get('text')]
+                else:
+                    candidates = [a for a in attempts if a['method'].startswith(pmethod) and a.get('text')]
+                
+                if candidates:
+                    chosen = candidates[0]
                     break
 
-        # if no priority method worked, try any non-raw with text
+        # if still no match, try any non-raw with text
         if chosen is None:
             for a in attempts:
                 if a['method'] != 'raw' and a.get('text'):
                     chosen = a
                     break
 
-        # if still no match, try any known file type
+        # last resort: use raw
         if chosen is None:
-            for a in attempts:
-                if a.get('file_type') and a['file_type'] != 'Unknown/binary' and a['method'] != 'raw':
-                    chosen = a
-                    break
-
-        # fallback to raw
-        if chosen is None:
-            chosen = attempts[0] if attempts else {'method': 'none', 'text': None, 'file_type': 'Unknown'}
+            chosen = raw_candidate if raw_candidate else (attempts[0] if attempts else {'method': 'none', 'text': None, 'file_type': 'Unknown'})
 
         # prepare response
         resp = {

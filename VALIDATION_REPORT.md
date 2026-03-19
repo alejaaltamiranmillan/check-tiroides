@@ -13,30 +13,35 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
 ## 🔐 5 Tipos de Cifrado Soportados
 
 ### 1. ✅ Texto Plano (Raw/Plain Text)
+
 - **Entrada:** Cualquier texto sin encriptar
 - **Método Detectado:** `raw`
 - **Ejemplo:** `"Hola mundo"` → `"Hola mundo"`
 - **Estado:** Funciona automáticamente
 
 ### 2. ✅ Caesar Cipher (Cifrado César)
+
 - **Entrada:** Texto con desplazamiento alfabético
 - **Método:** `caesar` con parámetro `key` (shift de 0-25)
 - **Ejemplo:** `"Khoor zruog"` con `key=3` → `"Hello world"`
 - **Estado:** Funciona con shift explícito y brute-force automático
 
-### 3. ✅ ROT13 
+### 3. ✅ ROT13
+
 - **Entrada:** Texto con rotación de 13 posiciones
 - **Método:** `rot13`
 - **Ejemplo:** `"Uryyb jbeyq"` → `"Hello world"`
 - **Estado:** Funciona con método explícito
 
 ### 4. ✅ Base64
+
 - **Entrada:** Texto codificado en Base64
 - **Método:** `base64`
 - **Ejemplo:** `"SGVsbG8gd29ybGQ="` → `"Hello world"`
 - **Estado:** Funciona con detección automática y método explícito
 
 ### 5. ✅ XOR (Operación XOR bit a bit)
+
 - **Entrada:** Texto cifrado con operación XOR
 - **Método:** `xor` con parámetro `key` (0-255 para single-byte, o string para repeating-key)
 - **Ejemplo:** Texto XOR clave 42 desencriptado correctamente
@@ -56,7 +61,7 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
     Output: "Hola mundo"
     Method: raw
 
-2️⃣  CAESAR (shift 3):      ✅ EXITOSO  
+2️⃣  CAESAR (shift 3):      ✅ EXITOSO
     Input:  "Khoor zruog" (shift 3)
     Output: "Hello world"
     Method: caesar_shift_3
@@ -82,9 +87,10 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
 ## 🏗️ Arquitectura Técnica
 
 ### Backend (Python/Flask)
+
 - **Framework:** Flask 3.1.3 con CORS
 - **Ubicación:** `/api/index.py`
-- **Modelos ML:** 
+- **Modelos ML:**
   - `modelo_cifrado_mlp.pkl` (MLPClassifier para detección)
   - `scaler_cifrado.pkl` (StandardScaler para normalización)
 - **Funciones principales:**
@@ -95,6 +101,7 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
   - `extract_features()` - Extracción de características (11 dimensiones)
 
 ### Frontend (HTML/JS)
+
 - **Ubicación:** `/index.html`
 - **Estilos:** Tailwind CSS CDN
 - **Controles:**
@@ -105,6 +112,7 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
   - Visualización de resultados y lista de intentos
 
 ### Deployment
+
 - **Plataforma:** Vercel Serverless
 - **URL:** https://barbara-ai-sooty.vercel.app
 - **GitHub:** https://github.com/alejaaltamiranmillan/check-tiroides
@@ -136,7 +144,7 @@ El proyecto Barbara_AI desencriptador está completamente funcional en Vercel co
 ```
 Usuario envía JSON → API /api/decrypt
     ↓
-¿Método explícito? 
+¿Método explícito?
     ├─ Sí → Usar method/key proporcionados
     └─ No → attempt_decodings() (brute-force)
     ↓
@@ -174,12 +182,14 @@ Respuesta JSON con:
 ## 🚀 Cómo Usar
 
 ### Desde el UI Web
+
 1. Ir a https://barbara-ai-sooty.vercel.app
 2. Pegar texto cifrado en textarea
 3. (Opcional) Seleccionar método y proporcionar clave
 4. Click en "Desencriptar"
 
 ### Desde API REST
+
 ```bash
 # Texto plano
 curl -X POST https://barbara-ai-sooty.vercel.app/api/decrypt \
@@ -235,12 +245,13 @@ El proyecto Barbara_AI desencriptador está **100% funcional** en producción co
 Todas las pruebas de desencriptación funcionan correctamente en https://barbara-ai-sooty.vercel.app
 
 **Próximos pasos opcionales:**
+
 - Mejorar auto-detección para no requiere método explícito
 - Expandir lista de palabras clave para mejor scoring
 - Agregar soporte para más algoritmos (Vigenere, etc.)
 
 ---
 
-*Generado: 2025-01-20*
-*Proyecto: Barbara_AI Desencriptador*
-*Status: ✅ PRODUCCIÓN*
+_Generado: 2025-01-20_
+_Proyecto: Barbara_AI Desencriptador_
+_Status: ✅ PRODUCCIÓN_
