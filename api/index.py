@@ -293,34 +293,22 @@ def decrypt():
                 attempts = [{'method': f'caesar_shift_{shift}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
             except Exception:
                 attempts = attempt_decodings(text)
-
-                # quick wins: prefer caesar/rot13 candidates that clearly look English
-                caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
-                if caesars:
-                    best_caesar = max(caesars, key=lambda a: english_score(a.get('text') or ''))
-                    if english_score(best_caesar.get('text') or '') > 0:
-                        chosen = best_caesar
-
-                if chosen is None:
-                    rot = next((a for a in attempts if a.get('method') == 'rot13' and a.get('text')), None)
-                    if rot and english_score(rot.get('text') or '') > 0:
-                        chosen = rot
         # If explicit xor with key provided
         elif method == 'xor' and key is not None:
-            try:
-                # numeric single-byte key
-                if isinstance(key, int) or (isinstance(key, str) and key.isdigit()):
-                    k = int(key) % 256
-                    tb = text.encode('latin-1', errors='ignore')
-                    b = bytes([c ^ k for c in tb])
-                    s = b.decode('utf-8', errors='ignore')
-                    attempts = [{'method': f'xor_1byte_key_{k}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
-                else:
-                    # assume key is string -> repeating-key XOR
-                    kb = str(key).encode('latin-1', errors='ignore')
-                    tb = text.encode('latin-1', errors='ignore')
-                    b = xor_bytes_with_key(tb, kb)
-                    s = b.decode('utf-8', errors='ignore')
+            else:
+                attempts = attempt_decodings(text)
+
+            # quick wins: prefer caesar/rot13 candidates that clearly look English
+            caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
+            if caesars:
+                best_caesar = max(caesars, key=lambda a: english_score(a.get('text') or ''))
+                if english_score(best_caesar.get('text') or '') > 0:
+                    chosen = best_caesar
+
+            if chosen is None:
+                rot = next((a for a in attempts if a.get('method') == 'rot13' and a.get('text')), None)
+                if rot and english_score(rot.get('text') or '') > 0:
+                    chosen = rot
                     attempts = [{'method': f'xor_repeating_key_{key}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
             except Exception:
                 attempts = attempt_decodings(text)
