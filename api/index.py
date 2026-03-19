@@ -57,6 +57,25 @@ def is_printable_text(b: bytes) -> bool:
     return (printable / max(len(s), 1)) > 0.9
 
 
+def caesar_shift(s: str, shift: int) -> str:
+    def shift_char(c):
+        if 'a' <= c <= 'z':
+            return chr((ord(c) - ord('a') - shift) % 26 + ord('a'))
+        if 'A' <= c <= 'Z':
+            return chr((ord(c) - ord('A') - shift) % 26 + ord('A'))
+        return c
+    return ''.join(shift_char(c) for c in s)
+
+
+def xor_bytes_with_key(data: bytes, key_bytes: bytes) -> bytes:
+    if not key_bytes:
+        return data
+    out = bytearray()
+    for i, b in enumerate(data):
+        out.append(b ^ key_bytes[i % len(key_bytes)])
+    return bytes(out)
+
+
 def detect_file_type(b: bytes) -> str:
     if b.startswith(b'%PDF'):
         return 'PDF'
@@ -121,16 +140,29 @@ def attempt_decodings(text: str):
     except Exception:
         pass
 
-    # XOR brute force (single-byte key)
+    # caesar brute-force (shifts 1..25)
+    try:
+        for shift in range(1, 26):
+            s = caesar_shift(text, shift)
+            b = s.encode('utf-8', errors='ignore')
+            # consider plausible if largely printable
+            if is_printable_text(b):
+                attempts.append({'method': f'caesar_shift_{shift}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)})
+    except Exception:
+        pass
+
+    # XOR brute force (single-byte keys) - collect a few good candidates
     try:
         tb = text.encode('latin-1', errors='ignore')
+        xor_found = 0
         for key in range(1, 256):
             b = bytes([c ^ key for c in tb])
             if is_printable_text(b):
                 s = b.decode('utf-8', errors='ignore')
                 attempts.append({'method': f'xor_1byte_key_{key}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)})
-                # prefer first printable result
-                break
+                xor_found += 1
+                if xor_found >= 5:
+                    break
     except Exception:
         pass
 
@@ -234,36 +266,69 @@ def decrypt():
         if not text:
             return jsonify({'status': 'error', 'message': 'No text provided'}), 400
 
-        attempts = attempt_decodings(text)
+        # allow targeted method/key from client
+        method = (data.get('method') or '').lower()
+        key = data.get('key')
+
+        # If explicit caesar with key provided
+        if method == 'caesar' and key is not None:
+            try:
+                shift = int(key) % 26
+                s = caesar_shift(text, shift)
+                b = s.encode('utf-8', errors='ignore')
+                attempts = [{'method': f'caesar_shift_{shift}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+            except Exception:
+                attempts = attempt_decodings(text)
+        # If explicit xor with key provided
+        elif method == 'xor' and key is not None:
+            try:
+                # numeric single-byte key
+                if isinstance(key, int) or (isinstance(key, str) and key.isdigit()):
+                    k = int(key) % 256
+                    tb = text.encode('latin-1', errors='ignore')
+                    b = bytes([c ^ k for c in tb])
+                    s = b.decode('utf-8', errors='ignore')
+                    attempts = [{'method': f'xor_1byte_key_{k}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+                else:
+                    # assume key is string -> repeating-key XOR
+                    kb = str(key).encode('latin-1', errors='ignore')
+                    tb = text.encode('latin-1', errors='ignore')
+                    b = xor_bytes_with_key(tb, kb)
+                    s = b.decode('utf-8', errors='ignore')
+                    attempts = [{'method': f'xor_repeating_key_{key}', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+            except Exception:
+                attempts = attempt_decodings(text)
+        else:
+            attempts = attempt_decodings(text)
 
         # pick best attempt: prioritize by method effectiveness
-        # priority order: base64 > hex > rot13 > xor > url > raw
-        priority_order = ['base64', 'hex', 'rot13', 'xor_1byte_key_1']
-        
+        # priority order: base64 > hex > rot13 > caesar (rot13) > xor > url > raw
+        priority_order = ['base64', 'hex', 'rot13', 'caesar_shift_13', 'xor_1byte']
+
         chosen = None
-        # try priority methods first
+        # try priority methods first (match by prefix)
         for pmethod in priority_order:
             for a in attempts:
-                if a['method'] == pmethod and a.get('text'):
+                if a['method'].startswith(pmethod) and a.get('text'):
                     chosen = a
                     break
             if chosen:
                 break
-        
+
         # if no priority method worked, try any non-raw with text
         if chosen is None:
             for a in attempts:
                 if a['method'] != 'raw' and a.get('text'):
                     chosen = a
                     break
-        
+
         # if still no match, try any known file type
         if chosen is None:
             for a in attempts:
                 if a.get('file_type') and a['file_type'] != 'Unknown/binary' and a['method'] != 'raw':
                     chosen = a
                     break
-        
+
         # fallback to raw
         if chosen is None:
             chosen = attempts[0] if attempts else {'method': 'none', 'text': None, 'file_type': 'Unknown'}
