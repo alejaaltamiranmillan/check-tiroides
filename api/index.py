@@ -167,16 +167,42 @@ def attempt_decodings(text: str):
 
 
 def english_score(s: str) -> int:
+    """
+    Score text based on detection of common English/Spanish words.
+    Favors readable text over random character combinations.
+    """
     if not s:
         return 0
     low = s.lower()
-    common = ['hello', 'world', 'the', 'and', 'is', 'secret', 'secreto', 'hola', 'mundo', 'prueba']
+    
+    # Common words in English and Spanish (more comprehensive list)
+    common_en = ['hello', 'world', 'the', 'and', 'is', 'secret', 'message', 'text',
+                 'password', 'key', 'this', 'that', 'what', 'your', 'with', 'from']
+    common_es = ['hola', 'mundo', 'el', 'la', 'es', 'de', 'que', 'para', 'por', 'una',
+                 'los', 'las', 'jueves', 'social', 'mensaje', 'texto', 'contraseña',
+                 'secreto', 'prueba', 'este', 'tiene', 'eres', 'estas']
+    
+    common = common_en + common_es
+    
     score = 0
+    found_words = 0
+    
+    # Check for common words (stronger signal)
     for w in common:
         if w in low:
-            score += 2
-    # reward spaces (multi-word)
-    score += low.count(' ') 
+            found_words += 1
+            score += 3
+    
+    # Bonus: reward spacing and common punctuation patterns
+    spaces = low.count(' ')
+    score += min(spaces, 3)  # Up to 3 points for words separated by spaces
+    
+    # Penalty: if NO valid words found and lots of numbers/special chars, lower score
+    if found_words == 0:
+        non_alpha = sum(1 for c in low if not c.isalpha() and c != ' ')
+        if non_alpha > len(low) * 0.5:  # More than 50% non-alphabetic
+            score = max(0, score - 2)
+    
     return score
 
 
