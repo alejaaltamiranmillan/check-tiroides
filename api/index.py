@@ -302,8 +302,8 @@ def decrypt():
             attempts = attempt_decodings(text)
 
         # pick best attempt: prioritize by method effectiveness
-        # priority order: base64 > hex > rot13 > caesar (rot13) > xor > url > raw
-        priority_order = ['base64', 'hex', 'rot13', 'caesar_shift_13', 'xor_1byte']
+        # priority order: base64 > hex > caesar > rot13 > xor > url > raw
+        priority_order = ['base64', 'hex', 'caesar_shift', 'rot13', 'xor_1byte']
 
         chosen = None
         # try priority methods first (match by prefix)
