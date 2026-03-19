@@ -323,8 +323,9 @@ def decrypt():
         # prepare raw candidate
         raw_candidate = next((a for a in attempts if a.get('method') == 'raw'), None)
 
-        # try priority methods first (match by prefix)
-        for pmethod in priority_order:
+        # try priority methods first (match by prefix) if not already chosen by quick checks
+        if chosen is None:
+            for pmethod in priority_order:
             # special handling for raw: only choose raw if it looks English
             if pmethod == 'raw':
                 if raw_candidate and english_score(raw_candidate.get('text') or '') > 0:
