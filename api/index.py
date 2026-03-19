@@ -326,38 +326,38 @@ def decrypt():
         # try priority methods first (match by prefix) if not already chosen by quick checks
         if chosen is None:
             for pmethod in priority_order:
-            # special handling for raw: only choose raw if it looks English
-            if pmethod == 'raw':
-                if raw_candidate and english_score(raw_candidate.get('text') or '') > 0:
-                    chosen = raw_candidate
-                    break
-                continue
-            # special handling for caesar: choose best-scoring candidate among shifts
-            if pmethod == 'caesar_shift':
-                caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
-                if caesars:
-                    best = None
-                    best_score = -1
-                    for a in caesars:
-                        s = a.get('text') or ''
-                        sc = english_score(s)
-                        if sc > best_score:
-                            best_score = sc
-                            best = a
-                    if best is not None and best_score > 0:
-                        chosen = best
+                # special handling for raw: only choose raw if it looks English
+                if pmethod == 'raw':
+                    if raw_candidate and english_score(raw_candidate.get('text') or '') > 0:
+                        chosen = raw_candidate
                         break
-                    # fallback: pick the caesar with most letters
-                    if best is None:
-                        best = caesars[0]
-                    else:
-                        chosen = best
-                        break
-                continue
+                    continue
+                # special handling for caesar: choose best-scoring candidate among shifts
+                if pmethod == 'caesar_shift':
+                    caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
+                    if caesars:
+                        best = None
+                        best_score = -1
+                        for a in caesars:
+                            s = a.get('text') or ''
+                            sc = english_score(s)
+                            if sc > best_score:
+                                best_score = sc
+                                best = a
+                        if best is not None and best_score > 0:
+                            chosen = best
+                            break
+                        # fallback: pick the caesar with most letters
+                        if best is None:
+                            best = caesars[0]
+                        else:
+                            chosen = best
+                            break
+                    continue
 
-            for a in attempts:
-                if a['method'].startswith(pmethod) and a.get('text'):
-                    chosen = a
+                for a in attempts:
+                    if a['method'].startswith(pmethod) and a.get('text'):
+                        chosen = a
                     break
             if chosen:
                 break
