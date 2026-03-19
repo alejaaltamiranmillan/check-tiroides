@@ -24,6 +24,28 @@
           class="w-full p-3 rounded bg-slate-700 border border-slate-600 outline-none focus:border-amber-400 text-white"
           required
         ></textarea>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select
+            id="method_select"
+            class="p-2 rounded bg-slate-700 border border-slate-600 text-white"
+          >
+            <option value="auto">Auto</option>
+            <option value="raw">Plain</option>
+            <option value="base64">Base64</option>
+            <option value="hex">Hex</option>
+            <option value="rot13">ROT13</option>
+            <option value="caesar">Caesar</option>
+            <option value="xor">XOR</option>
+          </select>
+          <input
+            id="key_input"
+            placeholder="Key (ej: 3 o miClave)"
+            class="p-2 rounded bg-slate-700 border border-slate-600 text-white"
+          />
+          <div class="text-sm text-slate-400 p-2">
+            Selecciona método o deja en Auto para detección automática.
+          </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             type="button"
@@ -60,10 +82,16 @@
         attemptsDiv.innerHTML = "";
 
         try {
+          const method = document.getElementById("method_select").value;
+          const key = document.getElementById("key_input").value || undefined;
+          const payload = { texto: text };
+          if (method && method !== "auto") payload.method = method;
+          if (key) payload.key = isNaN(Number(key)) ? key : Number(key);
+
           const resp = await fetch("/api/decrypt", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ texto: text }),
+            body: JSON.stringify(payload),
           });
 
           const data = await resp.json();
@@ -72,7 +100,6 @@
             let out = "";
             out += `<div><strong>Método decodificado:</strong> ${data.method}</div>`;
             out += `<div><strong>Tipo detectado:</strong> ${data.file_type}</div>`;
-            
 
             if (data.text) {
               out += `<pre class="whitespace-pre-wrap mt-2 text-sm bg-slate-800 p-3 rounded">${escapeHtml(data.text)}</pre>`;
