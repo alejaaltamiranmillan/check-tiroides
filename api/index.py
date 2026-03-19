@@ -169,6 +169,20 @@ def attempt_decodings(text: str):
     return attempts
 
 
+def english_score(s: str) -> int:
+    if not s:
+        return 0
+    low = s.lower()
+    common = ['hello', 'world', 'the', 'and', 'is', 'secret', 'secreto', 'hola', 'mundo', 'prueba']
+    score = 0
+    for w in common:
+        if w in low:
+            score += 2
+    # reward spaces (multi-word)
+    score += low.count(' ') 
+    return score
+
+
 def shannon_entropy(data: bytes) -> float:
     if not data:
         return 0.0
@@ -302,12 +316,35 @@ def decrypt():
             attempts = attempt_decodings(text)
 
         # pick best attempt: prioritize by method effectiveness
-        # priority order: base64 > hex > caesar > rot13 > xor > url > raw
-        priority_order = ['base64', 'hex', 'caesar_shift', 'rot13', 'xor_1byte']
+        # priority order: base64 > hex > raw > caesar > rot13 > xor > url
+        priority_order = ['base64', 'hex', 'raw', 'caesar_shift', 'rot13', 'xor_1byte']
 
         chosen = None
         # try priority methods first (match by prefix)
         for pmethod in priority_order:
+            # special handling for caesar: choose best-scoring candidate among shifts
+            if pmethod == 'caesar_shift':
+                caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
+                if caesars:
+                    best = None
+                    best_score = -1
+                    for a in caesars:
+                        s = a.get('text') or ''
+                        sc = english_score(s)
+                        if sc > best_score:
+                            best_score = sc
+                            best = a
+                    if best is not None and best_score > 0:
+                        chosen = best
+                        break
+                    # fallback: pick the caesar with most letters
+                    if best is None:
+                        best = caesars[0]
+                    else:
+                        chosen = best
+                        break
+                continue
+
             for a in attempts:
                 if a['method'].startswith(pmethod) and a.get('text'):
                     chosen = a
