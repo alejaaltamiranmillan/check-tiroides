@@ -359,8 +359,8 @@ def decrypt():
                     if a['method'].startswith(pmethod) and a.get('text'):
                         chosen = a
                         break
-            if chosen:
-                break
+                if chosen:
+                    break
 
         # if no priority method worked, try any non-raw with text
         if chosen is None:
