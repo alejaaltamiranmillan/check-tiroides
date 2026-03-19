@@ -320,8 +320,17 @@ def decrypt():
         priority_order = ['base64', 'hex', 'raw', 'caesar_shift', 'rot13', 'xor_1byte']
 
         chosen = None
+        # prepare raw candidate
+        raw_candidate = next((a for a in attempts if a.get('method') == 'raw'), None)
+
         # try priority methods first (match by prefix)
         for pmethod in priority_order:
+            # special handling for raw: only choose raw if it looks English
+            if pmethod == 'raw':
+                if raw_candidate and english_score(raw_candidate.get('text') or '') > 0:
+                    chosen = raw_candidate
+                    break
+                continue
             # special handling for caesar: choose best-scoring candidate among shifts
             if pmethod == 'caesar_shift':
                 caesars = [a for a in attempts if a['method'].startswith('caesar_shift') and a.get('text')]
