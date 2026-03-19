@@ -284,8 +284,35 @@ def decrypt():
         method = (data.get('method') or '').lower()
         key = data.get('key')
 
+        # If explicit rot13
+        if method == 'rot13':
+            try:
+                s = codecs.decode(text, 'rot_13')
+                b = s.encode('utf-8', errors='ignore')
+                attempts = [{'method': 'rot13', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+            except Exception:
+                attempts = attempt_decodings(text)
+        # If explicit base64
+        elif method == 'base64':
+            try:
+                b = base64.b64decode(text, validate=True)
+                s = b.decode('utf-8', errors='ignore')
+                attempts = [{'method': 'base64', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+            except Exception:
+                attempts = attempt_decodings(text)
+        # If explicit hex
+        elif method == 'hex':
+            try:
+                b = binascii.unhexlify(text.strip())
+                s = b.decode('utf-8', errors='ignore')
+                attempts = [{'method': 'hex', 'ok': True, 'bytes': b, 'text': s, 'file_type': detect_file_type(b)}]
+            except Exception:
+                attempts = attempt_decodings(text)
+        # If explicit raw
+        elif method == 'raw' or method == 'plain':
+            attempts = [{'method': 'raw', 'ok': True, 'bytes': text.encode('utf-8', errors='ignore'), 'text': text, 'file_type': detect_file_type(text.encode('utf-8', errors='ignore'))}]
         # If explicit caesar with key provided
-        if method == 'caesar' and key is not None:
+        elif method == 'caesar' and key is not None:
             try:
                 shift = int(key) % 26
                 s = caesar_shift(text, shift)
